@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Camera Capture & Upload</title>
+</head>
+<body>
+    <h2>Capture Image and Upload to S3</h2>
+    <video id="video" width="800" height="600" autoplay></video>
+    <button id="capture">Capture</button>
+    <canvas id="canvas" width="800" height="600" style="display: none;"></canvas>
+    <img id="preview" src="" alt="Captured Image" style="display: none;">
+    <button id="upload" style="display: none;">Upload</button>
+    <p id="status"></p>
+
+    <script>
+        const video = document.getElementById("video");
+        const canvas = document.getElementById("canvas");
+        const captureButton = document.getElementById("capture");
+        const uploadButton = document.getElementById("upload");
+        const preview = document.getElementById("preview");
+        const statusText = document.getElementById("status");
+
+        // Access the user's camera
+        navigator.mediaDevices.getUserMedia({ video: true })
+            .then(stream => video.srcObject = stream)
+            .catch(err => console.error("Error accessing camera:", err));
+
+        // Capture image from video
+        captureButton.addEventListener("click", () => {
+            const context = canvas.getContext("2d");
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+            preview.src = canvas.toDataURL("image/jpeg");
+            preview.style.display = "block";
+            uploadButton.style.display = "block";
+        });
+
+        // Upload the captured image
+        uploadButton.addEventListener("click", async () => {
+            statusText.innerText = "Uploading...";
+            const blob = await fetch(preview.src).then(res => res.blob());
+            const formData = new FormData();
+            formData.append("image", blob, "captured-image.jpg");
+
+            fetch("http://localhost:5000/upload", {
+                method: "POST",
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.imageUrl) {
+                    statusText.innerHTML = `Upload successful! <a href="${data.imageUrl}" target="_blank">View Image</a>`;
+                } else {
+                    statusText.innerText = "Upload failed!";
+                }
+            })
+            .catch(err => {
+                console.error("Upload error:", err);
+                statusText.innerText = "Error uploading image.";
+            });
+        });
+    </script>
+</body>
+</html>
